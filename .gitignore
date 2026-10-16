@@ -1,0 +1,25 @@
+# Keil build output
+Objects/
+Listings/
+
+*.o
+*.obj
+*.d
+*.crf
+*.axf
+*.elf
+*.map
+*.lst
+
+# Keil user-specific files
+*.uvguix.*
+*.uvgui.*
+*.uvoptx
+
+# Temporary files
+*.tmp
+*.bak
+
+# Windows
+Thumbs.db
+Desktop.ini

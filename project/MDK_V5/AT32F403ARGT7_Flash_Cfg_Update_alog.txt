@@ -1,0 +1,23 @@
+[project_search_path]: ./
+[map_search_path]: ./
+[project_file_path]: .//AT32F403ARGT7_Flash_Cfg_Update.uvprojx
+[ map_file_path]: .//listings/AT32F403ARGT7_Flash_Cfg_Update.map
+[parse_keil_map start]: 
+[Found keyword]: ----------Execution Region----------
+[name]:  ER_IROM1 
+[Exec base]: 0x8000000
+[Size]: 0x75b0
+[Max]: 0x100000
+[Found keyword]: ----------Execution Region----------
+[name]:  RW_IRAM1 
+[Exec base]: 0x20000000
+[Size]: 0x6ec8
+[Max]: 0x18000
+[parse_keil_map over printf bar]: 
+  RW_IRAM1 :0x20000000
+   96.00 KB :|¡ö¡ö¡ö¡ö¡ö_______________|   28.85 % (   27.70 KB /    96.00 KB) [69944 B]
+  ER_IROM1 :0x8000000
+    1.00 MB :|____________________|    2.87 % (    0.03 MB /     1.00 MB) [1018448 B]
+[export csv]: ./AT32F403ARGT7_Flash_Cfg_Update_sort_by_flash.csv
+[export csv]: ./AT32F403ARGT7_Flash_Cfg_Update_sort_by_ram.csv
+[export xlsx]: AT32F403ARGT7_Flash_Cfg_Update_analysis.xlsx
