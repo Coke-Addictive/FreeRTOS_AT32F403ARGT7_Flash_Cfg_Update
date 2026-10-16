@@ -1,3 +1,50 @@
+/**
+ * @file app_flash_simple.h
+ * @brief 设备用户配置定义、Flash 存储接口及版本升级维护说明。
+ * @author Treo
+ * @version V1.0.0
+ * @date 2026-10-16
+ *
+ * @par 当前版本
+ * V1.0.0，版本编码为 10000；载荷容量为 512 字节，有效字段为 67 字节，预留区为 445 字节。
+ * 完整记录为 524 字节；V2 的 1024 字节容量宏仅作预留，当前仍使用 V1 容量。
+ * 固定记录头：version 偏移 0，payload_valid_size 偏移 4，crc32 偏移 8，payload 偏移 12。
+ * CRC32 仅覆盖对应主版本的完整 payload，包括预留区，不包含记录头。
+ *
+ * @par 版本编号规则
+ * 主版本：载荷容量不足，需要扩容时递增，次版本和修订号归零，例如 V1.0.0 -> V2.0.0。
+ * 次版本：在当前载荷容量内追加业务字段时递增，修订号归零，例如 V1.0.0 -> V1.1.0。
+ * 修订号：修改变量名称、注释等，不改变存储布局和字段含义，例如 V1.0.0 -> V1.0.1。
+ * 编码规则：主版本 * 10000 + 次版本 * 100 + 修订号；次版本和修订号均限定为 0～99。
+ * 每次变更同步维护文件头版本、版本宏、相关布局说明和修订记录。
+ *
+ * @par 发布后固定的约定
+ * 已发布字段的类型、长度、偏移、顺序、单位和含义保持不变，仅在 Offset 之前追加新字段。
+ * 记录头布局、CRC32 算法及覆盖规则保持不变；已发布主版本的载荷容量宏永久保留原值。
+ *
+ * @par 同一主版本内追加字段
+ * 1. 在 Device_CFG_Params_t 的旧有效字段末尾、Offset 之前增加成员。
+ * 2. 根据实际布局缩减 DEVICE_CONFIG_RESERVED_SIZE，计入新增字段所需的对齐填充。
+ * 3. 确认 sizeof(Device_CFG_Params_t) 仍等于 DEVICE_CONFIG_PAYLOAD_SIZE_BYTES。
+ * 4. 在 DEFAULT_DEVICE_CFG 中补充新增字段默认值，并按需同步参数校验和打印函数。
+ * 5. 递增次版本、清零修订号；DEVICE_CONFIG_VALID_SIZE_BYTES 继续通过 offsetof 自动计算。
+ *
+ * @par 扩容到新主版本
+ * 1. 新增或启用目标主版本的 DEVICE_CONFIG_Vn_PAYLOAD_SIZE_BYTES，保留全部历史容量宏。
+ * 2. 将 DEVICE_CONFIG_PAYLOAD_SIZE_BYTES 切换到新容量，重新计算预留区并补充新增字段默认值。
+ * 3. 在 App_Device_Config_Record_Is_Valid() 中增加目标主版本对应的容量分支。
+ * 4. 递增主版本，次版本和修订号归零；按历史容量校验旧记录，再由 Load() 完成升级和写回。
+ * 5. 核对完整记录不超过 Flash 配置分区，载荷及记录长度满足 4 字节对齐，同时复核 RAM 和任务栈。
+ *
+ * @par 升级验证
+ * 下载新固件时保留旧配置分区，不执行整片擦除或恢复默认操作。
+ * 首次启动应打印版本及有效长度的升级前后值，旧字段保留，新字段获得默认值。
+ * 再次复位应直接加载成功，不再重复升级；若回填整份默认配置，则不视为升级测试通过。
+ *
+ * @par 修订记录
+ * 2026-10-16  V1.0.0  Treo：补充版本规则、固定记录布局和升级维护说明。
+ */
+
 #ifndef APP_FLASH_SIMPLE_H_
 #define APP_FLASH_SIMPLE_H_
 
@@ -14,12 +61,14 @@
 #define DEVICE_CONFIG_VER_PATCH                         0U                                                      // 修订号
 
 #define DEVICE_CONFIG_V1_PAYLOAD_SIZE_BYTES             512U                                     // 主版本 1 的载荷容量，单位字节
-// #define DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES             1024U                                    // 主版本 2 的载荷容量，单位字节---后续需要扩容启用这里
+#define DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES             1024U                                    // 主版本 2 的载荷容量，单位字节---后续需要扩容启用这里
 #define DEVICE_CONFIG_PAYLOAD_SIZE_BYTES                DEVICE_CONFIG_V1_PAYLOAD_SIZE_BYTES      // 当前版本载荷容量，单位字节
-#define DEVICE_CONFIG_RESERVED_SIZE                     445U                                                    // 后续版本扩展预留空间，单位字节
+// #define DEVICE_CONFIG_PAYLOAD_SIZE_BYTES                DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES      // 当前版本载荷容量，单位字节
+#define DEVICE_CONFIG_RESERVED_SIZE                     445U                                                    // V1后续版本扩展预留空间，单位字节
+// #define DEVICE_CONFIG_RESERVED_SIZE                     xxxU                                                    // V2后续版本扩展预留空间，单位字节
 #define DEVICE_CONFIG_VALID_SIZE_BYTES                  ((uint32_t)offsetof(Device_CFG_Params_t, Offset))       // 当前版本有效配置长度，单位字节
 #define DEVICE_CONFIG_VER_CODE                          ((DEVICE_CONFIG_VER_MAJOR * 10000U) + (DEVICE_CONFIG_VER_MINOR * 100U) + DEVICE_CONFIG_VER_PATCH)    // 配置格式版本编码
-// Flash记录格式
+
 
 
 /**

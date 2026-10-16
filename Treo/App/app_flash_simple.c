@@ -185,6 +185,9 @@ static bool App_Flash_Crc32_Calculate(const void *data, size_t data_size, uint32
  */
 static bool App_Device_Config_Record_Is_Valid(const DeviceConfigRecord_t *record) {
     uint32_t crc32;
+    uint32_t major_version;                     // 原始记录的主版本号
+    uint32_t payload_size;                      // 原始记录的载荷容量，单位字节
+
 
     if (record == NULL) {
         return false;
@@ -195,9 +198,23 @@ static bool App_Device_Config_Record_Is_Valid(const DeviceConfigRecord_t *record
         return false;
     }
 
+    // 根据原始主版本选择容量，避免使用新容量校验旧记录。
+    major_version = record->version / 10000U;
+    if (major_version == 1U) {
+        payload_size = DEVICE_CONFIG_V1_PAYLOAD_SIZE_BYTES;
+    } else if (major_version == 2U) {
+        payload_size = DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES;
+    } else {
+        return false;
+    }
+
+    if (payload_size > sizeof(record->payload)) {
+        return false;
+    }    
+
     // 检查有效数据长度
-    if ((record->payload_valid_size == 0U) || (record->payload_valid_size > DEVICE_CONFIG_VALID_SIZE_BYTES) ||
-        (record->payload_valid_size > sizeof(record->payload))) {
+    // 有效长度不能超过历史载荷容量，也不能超过当前可识别的字段范围。
+    if ((record->payload_valid_size == 0U) || (record->payload_valid_size > payload_size) || (record->payload_valid_size > DEVICE_CONFIG_VALID_SIZE_BYTES)) {
         return false;
     }
 
@@ -208,7 +225,7 @@ static bool App_Device_Config_Record_Is_Valid(const DeviceConfigRecord_t *record
     }
 
     // 校验完整载荷，包括预留区
-    if (App_Flash_Crc32_Calculate(&(record->payload), sizeof(record->payload), &crc32) == false) {
+    if (App_Flash_Crc32_Calculate(&(record->payload), payload_size, &crc32) == false) {
         return false;
     }
 
@@ -377,8 +394,8 @@ int32_t App_Flash_Init(void) {
  *         -12 表示服务未初始化；-13 表示获取互斥锁失败；-14 表示 Flash 读取失败；
  *         -15 表示记录准备失败；-16 表示记录写回失败；-17 表示已存储的业务参数非法。
  * @note 仅在调度器正常运行的任务上下文调用，适用于启动加载或受控重载。
- * @note 历史版本与当前版本须采用相同的 512 字节载荷和 CRC32 规则；
- *       旧字段布局及含义固定，新字段仅追加在旧有效字段之后。
+ * @note V1 系列按 512 字节载荷校验，V2 系列按 1024 字节载荷校验。
+ * @note 记录头与旧业务字段布局及含义保持不变，新字段仅追加在旧有效字段之后。
  * @note 校验期间须独占 CRC 外设；本函数持有 Flash 互斥锁，不调用公共 Save() 或 Reset()。
  * @note 流程失败时保留当前 RAM 配置和就绪状态，单扇区写回失败仍可能影响原 Flash 记录。
  */
@@ -415,7 +432,7 @@ int32_t App_Flash_DeviceConfig_Load(void) {
         if (s_device_config_candidate.version < DEVICE_CONFIG_VER_CODE) {
             old_valid_size = s_device_config_candidate.payload_valid_size;
 
-            LOG_INFO("检测到旧配置，准备升级，版本=%u，有效长度=%u", (unsigned int)s_device_config_candidate.version, (unsigned int)old_valid_size);
+            LOG_INFO("检测到旧配置，准备升级，版本=%u -> %u，有效长度=%u -> %u bytes", (unsigned int)s_device_config_candidate.version, (unsigned int)DEVICE_CONFIG_VER_CODE, (unsigned int)old_valid_size, (unsigned int)DEVICE_CONFIG_VALID_SIZE_BYTES);
 
             // 保留旧有效字段，只将新增字段所在区间替换为当前默认值。
             if (old_valid_size < DEVICE_CONFIG_VALID_SIZE_BYTES) {
@@ -465,7 +482,7 @@ int32_t App_Flash_DeviceConfig_Load(void) {
 
     App_Flash_Unlock();
 
-    LOG_INFO("用户配置加载完成");
+    LOG_INFO("用户配置加载完成，版本=%u，有效长度=%u bytes", (unsigned int)DEVICE_CONFIG_VER_CODE, (unsigned int)DEVICE_CONFIG_VALID_SIZE_BYTES);
     return 0;
 }
 
@@ -613,7 +630,7 @@ int32_t App_Flash_DeviceConfig_Reset(void) {
  * @note 配置须已成功加载或保存，获取失败时只打印错误信息。
  */
 void App_Flash_DeviceConfig_Prf(void) {
-    Device_CFG_Params_t config;
+    Device_CFG_Params_t config;                 // 当前配置的独立 RAM 快照
 
     if (App_Flash_DeviceConfig_Get(&config) != 0) {
         LOG_ERROR("获取用户配置失败，无法打印");
