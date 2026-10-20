@@ -3,13 +3,14 @@
  * @brief 设备用户配置定义、Flash 存储接口及版本升级维护说明。
  * @author Treo
  * @version V1.0.0
- * @date 2026-10-16
+ * @date 2026-10-20
  *
  * @par 当前版本
- * V1.0.0，版本编码为 10000；载荷容量为 512 字节，有效字段为 67 字节，预留区为 445 字节。
+ * V1.0.0，版本编码为 10000；载荷容量为 512 字节，有效字段为 70 字节，预留区为 442 字节。
  * 完整记录为 524 字节；V2 的 1024 字节容量宏仅作预留，当前仍使用 V1 容量。
  * 固定记录头：version 偏移 0，payload_valid_size 偏移 4，crc32 偏移 8，payload 偏移 12。
  * CRC32 仅覆盖对应主版本的完整 payload，包括预留区，不包含记录头。
+ * 当前处于未发布调试阶段，本次新增定位方式开关保持 V1.0.0，不做旧布局迁移；以下版本升级规则用于发布后维护。
  *
  * @par 版本编号规则
  * 主版本：载荷容量不足，需要扩容时递增，次版本和修订号归零，例如 V1.0.0 -> V2.0.0。
@@ -41,8 +42,17 @@
  * 首次启动应打印版本及有效长度的升级前后值，旧字段保留，新字段获得默认值。
  * 再次复位应直接加载成功，不再重复升级；若回填整份默认配置，则不视为升级测试通过。
  *
+ * @par TODO：多任务更新原子性（暂未解决）
+ * Get() 和 Save() 分别使用互斥锁，但“读取配置 -> 修改本地副本 -> 保存整份配置”并非原子操作。
+ * 两个任务读取同一份旧配置后分别修改不同字段，后保存的旧副本可能覆盖前一个任务已经保存的修改。
+ * 例如：任务 A 打开软开关并保存，任务 B 使用此前读取的副本修改静音时间并保存，可能将软开关恢复为旧值。
+ * 此时两次 Save() 均可能返回成功，CRC32 校验也正常，因此不能通过保存返回值或 CRC32 发现修改丢失。
+ * 解决前应由单一任务负责修改配置；若多个任务修改，调用方需统一串行化完整的读取、修改、保存过程。
+ * 后续再确定原子更新接口及锁的管理方式，并验证两个任务修改不同字段时均能保留修改。
+ * 本项仅记录待办，当前 Get()、Save() 接口及内部锁逻辑保持不变。
+ *
  * @par 修订记录
- * 2026-10-16  V1.0.0  Treo：补充版本规则、固定记录布局和升级维护说明。
+ * 2026-10-20  V1.0.0  Treo：调试阶段新增北斗、Wi-Fi、基站定位开关，同步默认值、打印及预留区，版本号不变。
  */
 
 #ifndef APP_FLASH_SIMPLE_H_
@@ -64,7 +74,7 @@
 #define DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES             1024U                                    // 主版本 2 的载荷容量，单位字节---后续需要扩容启用这里
 #define DEVICE_CONFIG_PAYLOAD_SIZE_BYTES                DEVICE_CONFIG_V1_PAYLOAD_SIZE_BYTES      // 当前版本载荷容量，单位字节
 // #define DEVICE_CONFIG_PAYLOAD_SIZE_BYTES                DEVICE_CONFIG_V2_PAYLOAD_SIZE_BYTES      // 当前版本载荷容量，单位字节
-#define DEVICE_CONFIG_RESERVED_SIZE                     445U                                                    // V1后续版本扩展预留空间，单位字节
+#define DEVICE_CONFIG_RESERVED_SIZE                     442U                                                    // V1后续版本扩展预留空间，单位字节
 // #define DEVICE_CONFIG_RESERVED_SIZE                     xxxU                                                    // V2后续版本扩展预留空间，单位字节
 #define DEVICE_CONFIG_VALID_SIZE_BYTES                  ((uint32_t)offsetof(Device_CFG_Params_t, Offset))       // 当前版本有效配置长度，单位字节
 #define DEVICE_CONFIG_VER_CODE                          ((DEVICE_CONFIG_VER_MAJOR * 10000U) + (DEVICE_CONFIG_VER_MINOR * 100U) + DEVICE_CONFIG_VER_PATCH)    // 配置格式版本编码
@@ -146,6 +156,9 @@ typedef struct __attribute__((aligned(4))) {
     uint8_t Device_Cooling_Increase_Time;               // 设备连续触发递增冷却时间，分钟
 
     uint8_t Device_Location_SW;                         // 系统定位开关
+    uint8_t Device_Location_BDS_SW;                     // 系统定位-北斗开关：0 关闭，1 开启
+    uint8_t Device_Location_WIFI_SW;                    // 系统定位-Wi-Fi 开关：0 关闭，1 开启
+    uint8_t Device_Location_LBS_SW;                     // 系统定位-基站开关：0 关闭，1 开启
     uint8_t Device_Location_Result_Broadcast_SW;        // 系统定位结果播报开关
     uint8_t Device_Location_Report_SW;                  // 系统定位上报开关
     uint8_t Device_Location_Report_Broadcast_SW;        // 系统定位上报播报开关

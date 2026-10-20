@@ -99,6 +99,9 @@ static const Device_CFG_Params_t DEFAULT_DEVICE_CFG = {
     .Device_Real_Volume =                   0U,                                 // 物理音量占位，待确定低音量档位映射
 
     .Device_Location_SW =                   1U,                                 // 系统定位-开
+    .Device_Location_BDS_SW =               1U,                                 // 北斗 定位-开
+    .Device_Location_WIFI_SW =              1U,                                 // Wi-Fi 定位-开
+    .Device_Location_LBS_SW =               1U,                                 // 基站 定位-开
     .Device_Location_Result_Broadcast_SW =  1U,                                 // 系统定位结果播报-开
     .Device_Location_Report_SW =            1U,                                 // 系统定位上报-开
     .Device_Location_Report_Broadcast_SW =  1U,                                 // 系统定位上报播报-开
@@ -664,7 +667,8 @@ void App_Flash_DeviceConfig_Prf(void) {
     LOG_INFO("音量: 逻辑等级=%u, 物理值=%u", (unsigned int)config.Device_Logic_Volume, (unsigned int)config.Device_Real_Volume);
 
     LOG_INFO("冷却: 模式=%u, 初始时间=%u min, 递增时间=%u min", (unsigned int)config.Device_Cooling_Mode, (unsigned int)config.Device_Cooling_Initial_Duration, (unsigned int)config.Device_Cooling_Increase_Time);
-    LOG_INFO("定位: 开关=%u, 定位播报开关=%u, 上报开关=%u, 上报播报开关=%u, 间隔=%u h %u min,", (unsigned int)config.Device_Location_SW, (unsigned int)config.Device_Location_Result_Broadcast_SW, (unsigned int)config.Device_Location_Report_SW, (unsigned int)config.Device_Location_Report_Broadcast_SW, (unsigned int)config.Device_Location_Frequency_Hour, (unsigned int)config.Device_Location_Frequency_Minute);
+    LOG_INFO("定位: 总开关=%u, 定位播报开关=%u, 上报开关=%u, 上报播报开关=%u, 间隔=%u h %u min,", (unsigned int)config.Device_Location_SW, (unsigned int)config.Device_Location_Result_Broadcast_SW, (unsigned int)config.Device_Location_Report_SW, (unsigned int)config.Device_Location_Report_Broadcast_SW, (unsigned int)config.Device_Location_Frequency_Hour, (unsigned int)config.Device_Location_Frequency_Minute);
+    LOG_INFO("定位方式开关: 北斗=%u, Wi-Fi=%u, 基站=%u", (unsigned int)config.Device_Location_BDS_SW, (unsigned int)config.Device_Location_WIFI_SW, (unsigned int)config.Device_Location_LBS_SW);
 
     // 限定 ID 字符数，未保存字符串结束符时也不会越界读取。
     LOG_INFO("遥控器 ID: %.*s", (int)(sizeof(config.Device_R5a_Id) - 1U), (const char *)config.Device_R5a_Id);
